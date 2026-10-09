@@ -242,7 +242,7 @@ void loadRules() {
     if (t1 < 0 || t2 < 0 || !parseRuleType(line.substring(0, t1), type)) continue;
     rules.push_back({type, line.substring(t1 + 1, t2), line.substring(t2 + 1)});
   }
-  Serial.printf("[cfg] правил: %u\n", (unsigned)rules.size());
+  Serial.printf("[cfg] rules: %u\n", (unsigned)rules.size());
 }
 
 bool saveRules() {
@@ -295,7 +295,7 @@ bool ensureWiFi(uint32_t waitMs) {
 
 SendResult telegramSend(const String& chatId, const String& text, String* errDesc) {
   if (!ensureWiFi()) {
-    Serial.println("[tg] нет WiFi");
+    Serial.println("[tg] no WiFi");
     return SEND_RETRY;
   }
   WiFiClientSecure client;
@@ -312,7 +312,7 @@ SendResult telegramSend(const String& chatId, const String& text, String* errDes
   http.end();
 
   if (code == 200) return SEND_OK;
-  noteError("Telegram: " + (code > 0 ? "HTTP " + String(code) + " " + resp : String("нет соединения (") + code + ")"));
+  noteError("Telegram: " + (code > 0 ? "HTTP " + String(code) + " " + resp : String("no connection (") + code + ")"));
   if (code == 400 || code == 403) {
     if (errDesc) {
       int s = resp.indexOf("\"description\":\"");
@@ -330,7 +330,7 @@ DeliverResult deliver(const String& chatId, const String& text) {
   SendResult r = telegramSend(chatId, text, &err);
   if (r == SEND_OK) return DELIVER_OK;
   if (r == SEND_REJECTED && chatId != defaultChatId) {
-    String note = text + "\n\n⚠️ Не удалось отправить в " + chatId + ": " + err;
+    String note = text + "\n\n⚠️ Could not send to " + chatId + ": " + err;
     if (telegramSend(defaultChatId, note) == SEND_OK) return DELIVER_FALLBACK;
   }
   return DELIVER_FAIL;
@@ -358,7 +358,7 @@ bool pollLine(String& line) {
 
 bool handleUrc(const String& line) {
   if (line.startsWith("+CMTI:")) {
-    Serial.println("[modem] новое SMS");
+    Serial.println("[modem] new SMS");
     smsPending = true;
     return true;
   }
@@ -386,8 +386,8 @@ bool waitFinal(const String& cmd, String* resp, uint32_t timeoutMs) {
       *resp += '\n';
     }
   }
-  lastAtError = "модем не ответил";
-  Serial.printf("[modem] %s -> таймаут\n", cmd.c_str());
+  lastAtError = "no response from modem";
+  Serial.printf("[modem] %s -> timeout\n", cmd.c_str());
   return false;
 }
 
@@ -401,7 +401,7 @@ bool sendAT(const String& cmd, String* resp, uint32_t timeoutMs) {
 }
 
 void modemPowerOn() {
-  Serial.println("[modem] включаю модем");
+  Serial.println("[modem] powering on");
   pinMode(BOARD_POWERON_PIN, OUTPUT);
   digitalWrite(BOARD_POWERON_PIN, HIGH);  // already HIGH since setup(), kept here for restarts
 
@@ -433,7 +433,7 @@ bool waitForModem(uint32_t timeoutMs) {
 
 bool modemSetup() {
   if (!waitForModem(30000)) {
-    noteError("Модем не отвечает");
+    noteError("Modem not responding");
     return false;
   }
   sendAT("ATE0");
@@ -452,14 +452,14 @@ bool modemSetup() {
     if (!simReady) delay(1000);
   }
   if (!simReady) {
-    noteError("SIM не готова: нет симки или нужен PIN");
+    noteError("SIM not ready: no SIM card or PIN required");
     return false;
   }
 
   // SMS subsystem may need a few seconds after boot ("SMS DONE")
   for (int i = 0; i < 20; i++) {
     if (sendAT("AT+CMGF=0") && sendAT("AT+CPMS=\"SM\",\"SM\",\"SM\"") && sendAT("AT+CNMI=2,1,0,0,0")) {
-      Serial.println("[modem] готов принимать SMS");
+      Serial.println("[modem] ready to receive SMS");
       return true;
     }
     delay(1500);
@@ -521,9 +521,9 @@ void refreshModemInfo() {
 
 String modemStatus() {
   refreshModemInfo();
-  String s = "сигнал " + (modemInfo.csq < 0 || modemInfo.csq == 99 ? String("нет") : String(modemInfo.csq) + "/31");
-  if (modemInfo.op.length()) s += ", оператор " + modemInfo.op;
-  s += modemInfo.registered ? ", в сети" : ", НЕ зарегистрирован в сети";
+  String s = "signal " + (modemInfo.csq < 0 || modemInfo.csq == 99 ? String("none") : String(modemInfo.csq) + "/31");
+  if (modemInfo.op.length()) s += ", operator " + modemInfo.op;
+  s += modemInfo.registered ? ", registered" : ", NOT registered on the network";
   return s;
 }
 
@@ -555,7 +555,7 @@ bool modemSendPdu(const pdu::SubmitPdu& p, String& err) {
   if (!prompt) {
     SerialAT.write(0x1B);  // cancel
     seen.trim();
-    err = seen.length() ? seen : String("модем не готов к отправке");
+    err = seen.length() ? seen : String("modem not ready to send");
     return false;
   }
   SerialAT.print(p.hex);
@@ -568,7 +568,7 @@ bool modemSendPdu(const pdu::SubmitPdu& p, String& err) {
 bool sendSms(const String& number, const String& text, int& parts, String& err) {
   std::vector<uint16_t> units = pdu::utf8ToUtf16(text);
   if (pdu::partsNeeded(units.size()) > SMS_MAX_PARTS) {
-    err = "слишком длинный текст (максимум " + String(SMS_MAX_PARTS) + " SMS)";
+    err = "text too long (max " + String(SMS_MAX_PARTS) + " SMS)";
     return false;
   }
   static uint8_t ref = 0;
@@ -576,11 +576,11 @@ bool sendSms(const String& number, const String& text, int& parts, String& err) 
   parts = pdus.size();
   for (const pdu::SubmitPdu& p : pdus) {
     if (!modemSendPdu(p, err)) {
-      noteError("SMS на " + number + " не отправлено: " + err);
+      noteError("SMS to " + number + " not sent: " + err);
       return false;
     }
   }
-  Serial.printf("[sms] отправлено на %s (%d SMS)\n", number.c_str(), parts);
+  Serial.printf("[sms] sent to %s (%d SMS)\n", number.c_str(), parts);
   return true;
 }
 
@@ -619,7 +619,7 @@ bool ussdRequest(const String& code, String& text, bool& sessionOpen) {
     else if (line.startsWith("+CUSD:")) cusd = line;
   }
   if (!cusd.length()) {
-    text = "оператор не ответил";
+    text = "no response from the operator";
     return false;
   }
 
@@ -633,9 +633,9 @@ bool ussdRequest(const String& code, String& text, bool& sessionOpen) {
     body = pdu::ucs2ToUtf8(bytes.data(), bytes.size());
   }
   sessionOpen = (m == 1);
-  if (m == 2) text = body.length() ? body : String("оператор закрыл запрос");
-  else if (m == 4) text = "оператор не поддерживает этот запрос";
-  else if (m == 5) text = "сеть не ответила вовремя";
+  if (m == 2) text = body.length() ? body : String("the operator closed the request");
+  else if (m == 4) text = "the operator does not support this request";
+  else if (m == 5) text = "network timeout";
   else text = body;
   return m == 0 || m == 1 || m == 2;
 }
@@ -648,13 +648,13 @@ void deleteSms(int index) { sendAT("AT+CMGD=" + String(index), nullptr, 5000); }
 
 bool handleMessage(const String& sender, const String& time, const String& text, const std::vector<int>& indices) {
   Route r = route(sender, text);
-  Serial.printf("[sms] от %s -> %s\n", sender.c_str(), r.chatId.c_str());
+  Serial.printf("[sms] from %s -> %s\n", sender.c_str(), r.chatId.c_str());
 
   String msg = SHOW_HEADER ? "📩 " + sender + " · " + time + "\n\n" + r.text : r.text;
-  if (msg.length() == 0) msg = "(пустое SMS от " + sender + ")";
+  if (msg.length() == 0) msg = "(empty SMS from " + sender + ")";
   DeliverResult d = deliver(r.chatId, msg);
   if (d == DELIVER_FAIL) {
-    Serial.println("[sms] не отправлено, повторю позже");
+    Serial.println("[sms] not sent, will retry later");
     failedCount++;
     recordHistory(false, sender, time, text, r.chatId, "pending");
     return false;
@@ -698,8 +698,8 @@ void processInbox() {
     } else if (res == DECODE_NOT_DELIVER) {
       deleteSms(idx);  // delivery reports etc.
     } else {
-      noteError("Не смог разобрать SMS #" + String(idx));
-      if (deliver(defaultChatId, "⚠️ Не смог разобрать SMS, PDU:\n" + line)) deleteSms(idx);
+      noteError("Could not decode SMS #" + String(idx));
+      if (deliver(defaultChatId, "⚠️ Could not decode an SMS, raw PDU:\n" + line)) deleteSms(idx);
     }
   }
 
@@ -740,7 +740,7 @@ void processInbox() {
       // Wait for the remaining parts, then give up and send what arrived
       auto seen = partialFirstSeen.emplace(g.first, now).first;
       if (now - seen->second < MULTIPART_TIMEOUT_MS) continue;
-      Serial.printf("[sms] не дождался %u частей из %u, отправляю что есть\n", missing, total);
+      Serial.printf("[sms] %u of %u parts never arrived, sending what we have\n", missing, total);
     }
     if (handleMessage(parts[0]->sms.sender, parts[0]->sms.timestamp, text, indices)) partialFirstSeen.erase(g.first);
   }
@@ -752,16 +752,16 @@ void processInbox() {
 
 const char* resetReasonName(esp_reset_reason_t r) {
   switch (r) {
-    case ESP_RST_POWERON:  return "включение / кнопка RST";
-    case ESP_RST_EXT:      return "внешний сброс";
-    case ESP_RST_SW:       return "программная перезагрузка";
-    case ESP_RST_PANIC:    return "сбой программы";
+    case ESP_RST_POWERON:  return "power-on / RST button";
+    case ESP_RST_EXT:      return "external reset";
+    case ESP_RST_SW:       return "software restart";
+    case ESP_RST_PANIC:    return "crash";
     case ESP_RST_INT_WDT:
     case ESP_RST_TASK_WDT:
-    case ESP_RST_WDT:      return "сторожевой таймер";
-    case ESP_RST_BROWNOUT: return "просадка питания";
-    case ESP_RST_DEEPSLEEP: return "выход из сна";
-    default:               return "неизвестно";
+    case ESP_RST_WDT:      return "watchdog";
+    case ESP_RST_BROWNOUT: return "power dip (brownout)";
+    case ESP_RST_DEEPSLEEP: return "wake from sleep";
+    default:               return "unknown";
   }
 }
 
@@ -781,7 +781,7 @@ bool doubleResetDetected() {
     return true;
   }
   p.putBool("armed", true);
-  Serial.println("Для сброса настроек нажми RST ещё раз в течение 3 сек");
+  Serial.println("Press RST again within 3 s to factory-reset");
   delay(3000);
   p.putBool("armed", false);
   p.end();
@@ -789,7 +789,7 @@ bool doubleResetDetected() {
 }
 
 void factoryReset() {
-  Serial.println("[cfg] сброс до заводских: WiFi, токен, канал и правила стёрты");
+  Serial.println("[cfg] factory reset: WiFi, token, default chat and rules erased");
   WiFiManager wm;
   wm.resetSettings();
   Preferences p;
@@ -802,7 +802,7 @@ void factoryReset() {
 }
 
 void forgetAndRestart(const char* key, const char* why) {
-  Serial.printf("[cfg] %s, открываю точку доступа для настройки\n", why);
+  Serial.printf("[cfg] %s, opening the setup hotspot\n", why);
   Preferences p;
   p.begin("cfg", false);
   p.remove(key);
@@ -820,8 +820,8 @@ void setupWiFiAndConfig() {
   defaultChatId = p.getString("chat", "");
 
   WiFiManager wm;
-  WiFiManagerParameter pToken("token", "Токен бота (от @BotFather)", botToken.c_str(), 80);
-  WiFiManagerParameter pChat("chat", "ID канала по умолчанию (-100... или @username)", defaultChatId.c_str(), 40);
+  WiFiManagerParameter pToken("token", "Bot token (from @BotFather)", botToken.c_str(), 80);
+  WiFiManagerParameter pChat("chat", "Default chat ID (-100... or @username)", defaultChatId.c_str(), 40);
   wm.addParameter(&pToken);
   wm.addParameter(&pChat);
   wm.setTitle("SMS → Telegram");
@@ -830,7 +830,7 @@ void setupWiFiAndConfig() {
   wm.setConfigPortalTimeout(300);  // no one configured it in 5 min -> reboot and retry saved WiFi
 
   bool missing = botToken.isEmpty() || defaultChatId.isEmpty();
-  if (missing) Serial.printf("[cfg] нет токена или канала, подключись к WiFi \"%s\" (пароль %s)\n", AP_NAME, AP_PASS);
+  if (missing) Serial.printf("[cfg] no token or chat yet, connect to WiFi \"%s\" (password %s)\n", AP_NAME, AP_PASS);
   bool connected = missing ? wm.startConfigPortal(AP_NAME, AP_PASS) : wm.autoConnect(AP_NAME, AP_PASS);
 
   String token = pToken.getValue(), chat = pChat.getValue();
@@ -841,12 +841,12 @@ void setupWiFiAndConfig() {
   p.end();
 
   if (!connected || botToken.isEmpty() || defaultChatId.isEmpty()) {
-    Serial.println("[cfg] настройка не завершена, перезагрузка");
+    Serial.println("[cfg] setup not finished, restarting");
     delay(1000);
     ESP.restart();
   }
   WiFi.setAutoReconnect(true);
-  Serial.printf("[wifi] подключен к %s, IP %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+  Serial.printf("[wifi] connected to %s, IP %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
 }
 
 // ------------------------------------------------------------
@@ -916,8 +916,8 @@ void webSendSms() {
   for (unsigned i = 0; i < to.length(); i++) {
     if (isdigit((uint8_t)to[i]) || (to[i] == '+' && number.isEmpty())) number += to[i];
   }
-  if (digitsOf(number).length() < 3 || text.isEmpty()) return replyJson(false, ",\"error\":\"нужен номер и текст\"");
-  if (!modemReady) return replyJson(false, ",\"error\":\"модем не готов\"");
+  if (digitsOf(number).length() < 3 || text.isEmpty()) return replyJson(false, ",\"error\":\"number and text are required\"");
+  if (!modemReady) return replyJson(false, ",\"error\":\"modem not ready\"");
 
   int parts = 0;
   String err;
@@ -930,8 +930,8 @@ void webSendSms() {
 void webUssd() {
   String raw = server.arg("code"), code;
   for (unsigned i = 0; i < raw.length(); i++) if (strchr("0123456789*#+", raw[i])) code += raw[i];
-  if (code.isEmpty()) return replyJson(false, ",\"error\":\"пустой запрос\"");
-  if (!modemReady) return replyJson(false, ",\"error\":\"модем не готов\"");
+  if (code.isEmpty()) return replyJson(false, ",\"error\":\"empty request\"");
+  if (!modemReady) return replyJson(false, ",\"error\":\"modem not ready\"");
 
   String text;
   bool session = false;
@@ -946,20 +946,20 @@ void webConfig() {
   String token = server.arg("token"), chat = server.arg("chat");
   token.trim();
   chat.trim();
-  if (token.isEmpty() && chat.isEmpty()) return replyJson(false, ",\"error\":\"нечего менять\"");
+  if (token.isEmpty() && chat.isEmpty()) return replyJson(false, ",\"error\":\"nothing to change\"");
 
   String oldToken = botToken, oldChat = defaultChatId;
   if (token.length()) botToken = token;
   if (chat.length()) defaultChatId = chat;
   String err;
-  SendResult r = telegramSend(defaultChatId, "✅ Настройки Telegram обновлены", &err);
+  SendResult r = telegramSend(defaultChatId, "✅ Telegram settings updated", &err);
   if (r != SEND_OK) {
     botToken = oldToken;
     defaultChatId = oldChat;
     String why;
-    if (r == SEND_BAD_TOKEN) why = "Telegram не принял токен";
-    else if (r == SEND_REJECTED) why = "Telegram не принял канал: " + err;
-    else why = "нет связи с Telegram, попробуй ещё раз";
+    if (r == SEND_BAD_TOKEN) why = "Telegram rejected the bot token";
+    else if (r == SEND_REJECTED) why = "Telegram rejected the chat: " + err;
+    else why = "could not reach Telegram, try again";
     return replyJson(false, ",\"error\":" + jstr(why));
   }
   Preferences p;
@@ -982,27 +982,27 @@ String cleanField(String s) {
 void webRuleAdd() {
   MatchType type;
   String pattern = cleanField(server.arg("pattern")), chat = cleanField(server.arg("chat"));
-  if (!parseRuleType(server.arg("type"), type)) return replyJson(false, ",\"error\":\"неизвестный тип правила\"");
-  if (pattern.isEmpty() || chat.isEmpty()) return replyJson(false, ",\"error\":\"нужны условие и ID чата\"");
-  if (rules.size() >= MAX_RULES) return replyJson(false, ",\"error\":\"максимум " + String(MAX_RULES) + " правил\"");
+  if (!parseRuleType(server.arg("type"), type)) return replyJson(false, ",\"error\":\"unknown rule type\"");
+  if (pattern.isEmpty() || chat.isEmpty()) return replyJson(false, ",\"error\":\"condition and chat ID are required\"");
+  if (rules.size() >= MAX_RULES) return replyJson(false, ",\"error\":\"max " + String(MAX_RULES) + " rules\"");
 
   String err;
-  SendResult r = telegramSend(chat, "✅ Этот чат подключён к правилу: " + pattern, &err);
+  SendResult r = telegramSend(chat, "✅ This chat is now linked to the rule: " + pattern, &err);
   if (r != SEND_OK) {
     String why;
-    if (r == SEND_REJECTED) why = "Telegram не принял чат: " + err + ". Проверь ID и что бот — админ в канале";
-    else if (r == SEND_BAD_TOKEN) why = "Telegram не принял токен бота";
-    else why = "нет связи с Telegram, попробуй ещё раз";
+    if (r == SEND_REJECTED) why = "Telegram rejected the chat: " + err + ". Check the ID and that the bot is an admin there";
+    else if (r == SEND_BAD_TOKEN) why = "Telegram rejected the bot token";
+    else why = "could not reach Telegram, try again";
     return replyJson(false, ",\"error\":" + jstr(why));
   }
   rules.push_back({type, pattern, chat});
-  if (!saveRules()) return replyJson(false, ",\"error\":\"не удалось сохранить, слишком много правил\"");
+  if (!saveRules()) return replyJson(false, ",\"error\":\"could not save, too many rules\"");
   replyJson(true, "");
 }
 
 void webRuleDelete() {
   int i = server.arg("index").toInt();
-  if (i < 0 || i >= (int)rules.size()) return replyJson(false, ",\"error\":\"нет такого правила\"");
+  if (i < 0 || i >= (int)rules.size()) return replyJson(false, ",\"error\":\"no such rule\"");
   rules.erase(rules.begin() + i);
   saveRules();
   replyJson(true, "");
@@ -1011,7 +1011,7 @@ void webRuleDelete() {
 void webRuleMove() {
   int i = server.arg("index").toInt();
   int j = i + (server.arg("dir") == "up" ? -1 : 1);
-  if (i < 0 || j < 0 || i >= (int)rules.size() || j >= (int)rules.size()) return replyJson(false, ",\"error\":\"нельзя сдвинуть\"");
+  if (i < 0 || j < 0 || i >= (int)rules.size() || j >= (int)rules.size()) return replyJson(false, ",\"error\":\"cannot move\"");
   std::swap(rules[i], rules[j]);
   saveRules();
   replyJson(true, "");
@@ -1051,7 +1051,7 @@ void setupWeb() {
   server.on("/api/test", HTTP_POST, [] {
     if (!webAuth()) return;
     String err;
-    SendResult r = telegramSend(defaultChatId, "🔔 Тестовое сообщение из веб-панели", &err);
+    SendResult r = telegramSend(defaultChatId, "🔔 Test message from the web panel", &err);
     if (r == SEND_OK) replyJson(true, "");
     else replyJson(false, ",\"error\":" + jstr(err.length() ? err : lastError));
   });
@@ -1070,7 +1070,7 @@ void setupWeb() {
   });
   server.begin();
   if (MDNS.begin(HOSTNAME)) MDNS.addService("http", "tcp", 80);
-  Serial.printf("[web] панель: http://%s.local или http://%s\n", HOSTNAME, WiFi.localIP().toString().c_str());
+  Serial.printf("[web] panel: http://%s.local or http://%s\n", HOSTNAME, WiFi.localIP().toString().c_str());
 }
 
 // ------------------------------------------------------------
@@ -1085,7 +1085,7 @@ void setupModem() {
       return;
     }
     if (!warned && ensureWiFi(1000)) {
-      warned = telegramSend(defaultChatId, "⚠️ Модем не запустился: " + lastError + ". Пробую снова…") == SEND_OK;
+      warned = telegramSend(defaultChatId, "⚠️ Modem failed to start: " + lastError + ". Retrying…") == SEND_OK;
     }
     for (uint32_t t = millis(); millis() - t < 10000;) {  // keep the web panel responsive between attempts
       server.handleClient();
@@ -1102,7 +1102,7 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   resetReason = esp_reset_reason();
-  Serial.printf("\n=== SMS -> Telegram ===\nпричина перезагрузки: %s\n", resetReasonName(resetReason));
+  Serial.printf("\n=== SMS -> Telegram ===\nreset reason: %s\n", resetReasonName(resetReason));
 
   if (doubleResetDetected()) factoryReset();
   setupWiFiAndConfig();
@@ -1113,16 +1113,16 @@ void setup() {
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
   setupModem();
 
-  if (!waitForNetwork(60000)) Serial.println("[modem] сеть не найдена, продолжаю ждать в фоне");
+  if (!waitForNetwork(60000)) Serial.println("[modem] no network yet, will keep trying in the background");
 
   // The startup message doubles as a check of the token and chat id entered in the portal
-  String hello = "✅ Пересылка SMS запущена: " + modemStatus() + "\nПанель: http://" + HOSTNAME + ".local (" +
+  String hello = "✅ SMS forwarding started: " + modemStatus() + "\nWeb panel: http://" + HOSTNAME + ".local (" +
                  WiFi.localIP().toString() + ")";
   if (resetReason != ESP_RST_POWERON && resetReason != ESP_RST_SW)
-    hello += "\n⚠️ Причина перезагрузки: " + String(resetReasonName(resetReason));
+    hello += "\n⚠️ Reset reason: " + String(resetReasonName(resetReason));
   SendResult r = telegramSend(defaultChatId, hello);
-  if (r == SEND_BAD_TOKEN) forgetAndRestart("token", "Telegram не принял токен бота");
-  if (r == SEND_REJECTED) forgetAndRestart("chat", "Telegram не принял ID канала (или бот не админ в нём)");
+  if (r == SEND_BAD_TOKEN) forgetAndRestart("token", "Telegram rejected the bot token");
+  if (r == SEND_REJECTED) forgetAndRestart("chat", "Telegram rejected the chat ID (or the bot is not an admin there)");
   smsPending = true;  // forward whatever arrived while we were off
 }
 
@@ -1144,7 +1144,7 @@ void loop() {
   if (modemReady && now - lastModemInfo > MODEM_INFO_INTERVAL_MS) refreshModemInfo();
 
   if (modemFailures >= 3) {
-    Serial.println("[modem] модем перестал отвечать, перезапускаю");
+    Serial.println("[modem] stopped responding, restarting it");
     modemFailures = 0;
     setupModem();
     smsPending = true;
@@ -1156,7 +1156,7 @@ void loop() {
   } else if (wifiDownSince == 0) {
     wifiDownSince = now ? now : 1;
   } else if (now - wifiDownSince > WIFI_RESTART_AFTER_MS) {
-    Serial.println("[wifi] нет связи слишком долго, перезагрузка");
+    Serial.println("[wifi] down for too long, rebooting");
     ESP.restart();
   }
 

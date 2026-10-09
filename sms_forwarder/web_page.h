@@ -2,7 +2,7 @@
 // Web panel page, served at "/". Talks to the /api/* endpoints in sms_forwarder.ino.
 
 static const char WEB_PAGE[] = R"html(<!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -54,40 +54,40 @@ code{background:var(--field);border:1px solid var(--line);border-radius:4px;padd
 <header><h1>SMS → Telegram</h1><span class="muted" id="updated"></span></header>
 
 <div class="grid">
-  <section class="card"><h2>Модем</h2><dl class="kv" id="modem"></dl></section>
-  <section class="card"><h2>WiFi и плата</h2><dl class="kv" id="sys"></dl></section>
+  <section class="card"><h2>Modem</h2><dl class="kv" id="modem"></dl></section>
+  <section class="card"><h2>WiFi and board</h2><dl class="kv" id="sys"></dl></section>
 </div>
 
-<section class="card"><h2>Правила пересылки</h2>
+<section class="card"><h2>Forwarding rules</h2>
   <div id="rules"></div>
   <form class="rule-form" id="ruleForm">
     <select name="type">
-      <option value="STARTS_WITH">Начинается с</option>
-      <option value="CONTAINS">Содержит</option>
-      <option value="FROM">Отправитель</option>
+      <option value="STARTS_WITH">Starts with</option>
+      <option value="CONTAINS">Contains</option>
+      <option value="FROM">Sender</option>
     </select>
     <input name="pattern" placeholder="[work]:" required autocomplete="off">
-    <input name="chat" placeholder="ID чата (-100…)" required autocomplete="off">
-    <button>Добавить</button>
+    <input name="chat" placeholder="Chat ID (-100…)" required autocomplete="off">
+    <button>Add</button>
   </form>
   <div class="out" id="ruleOut" style="margin-top:8px"></div>
 </section>
 
-<section class="card"><h2>Сообщения</h2><div class="history" id="history"></div></section>
+<section class="card"><h2>Messages</h2><div class="history" id="history"></div></section>
 
 <div class="grid" style="margin-top:16px">
-  <section class="card"><h2>Отправить SMS</h2>
+  <section class="card"><h2>Send SMS</h2>
     <form id="smsForm">
-      <input name="to" placeholder="Номер в международном формате, с +" inputmode="tel" required>
-      <textarea name="text" placeholder="Текст" required></textarea>
-      <div class="row"><button>Отправить</button><span class="muted" id="smsCount"></span></div>
+      <input name="to" placeholder="Number in international format, with +" inputmode="tel" required>
+      <textarea name="text" placeholder="Text" required></textarea>
+      <div class="row"><button>Send</button><span class="muted" id="smsCount"></span></div>
       <div class="out" id="smsOut"></div>
     </form>
   </section>
   <section class="card"><h2>USSD</h2>
     <form id="ussdForm">
       <input name="code" placeholder="*100#" inputmode="tel" required>
-      <div class="row"><button>Отправить</button><button type="button" class="secondary" id="ussdCancel">Закрыть меню</button></div>
+      <div class="row"><button>Send</button><button type="button" class="secondary" id="ussdCancel">Close menu</button></div>
       <div class="out" id="ussdOut"></div>
     </form>
   </section>
@@ -97,14 +97,14 @@ code{background:var(--field);border:1px solid var(--line);border-radius:4px;padd
   <section class="card"><h2>Telegram</h2>
     <dl class="kv" id="tg"></dl>
     <form id="cfgForm" style="margin-top:12px">
-      <input name="token" placeholder="Новый токен бота (пусто — не менять)" autocomplete="off">
-      <input name="chat" placeholder="Новый ID канала по умолчанию (пусто — не менять)" autocomplete="off">
-      <div class="row"><button>Сохранить</button><button type="button" class="secondary" id="testBtn">Тестовое сообщение</button></div>
+      <input name="token" placeholder="New bot token (leave empty to keep)" autocomplete="off">
+      <input name="chat" placeholder="New default chat ID (leave empty to keep)" autocomplete="off">
+      <div class="row"><button>Save</button><button type="button" class="secondary" id="testBtn">Test message</button></div>
       <div class="out" id="cfgOut"></div>
     </form>
   </section>
-  <section class="card"><h2>Плата</h2>
-    <div class="row"><button class="secondary" id="rebootBtn">Перезагрузить</button><button class="danger" id="resetBtn">Сброс до заводских</button></div>
+  <section class="card"><h2>Board</h2>
+    <div class="row"><button class="secondary" id="rebootBtn">Reboot</button><button class="danger" id="resetBtn">Factory reset</button></div>
     <div class="out" id="sysOut" style="margin-top:8px"></div>
   </section>
 </div>
@@ -118,15 +118,15 @@ const dot = state => `<span class="dot" style="background:var(--${state})"></spa
 const yes = b => b ? 'ok' : 'bad';
 function dur(s) {
   const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
-  return (d ? d + ' д ' : '') + (h ? h + ' ч ' : '') + m + ' мин';
+  return (d ? d + 'd ' : '') + (h ? h + 'h ' : '') + m + 'm';
 }
 function signal(csq) {
-  if (csq < 0 || csq === 99) return dot('bad') + 'нет';
-  const [w, c] = csq < 10 ? ['слабый', 'bad'] : csq < 15 ? ['средний', 'warn'] : csq < 20 ? ['хороший', 'ok'] : ['отличный', 'ok'];
+  if (csq < 0 || csq === 99) return dot('bad') + 'none';
+  const [w, c] = csq < 10 ? ['weak', 'bad'] : csq < 15 ? ['fair', 'warn'] : csq < 20 ? ['good', 'ok'] : ['excellent', 'ok'];
   return `${dot(c)}${w} (${csq}/31)`;
 }
-const STATUS = {sent: ['переслано', 'ok'], fallback: ['в канал по умолчанию', 'warn'], pending: ['ждёт отправки', 'warn'], failed: ['ошибка', 'bad']};
-const RULE = {STARTS_WITH: 'Начинается с', CONTAINS: 'Содержит', FROM: 'Отправитель'};
+const STATUS = {sent: ['forwarded', 'ok'], fallback: ['sent to default chat', 'warn'], pending: ['waiting to send', 'warn'], failed: ['failed', 'bad']};
+const RULE = {STARTS_WITH: 'Starts with', CONTAINS: 'Contains', FROM: 'Sender'};
 let lastRules = '';
 
 async function post(url, data) {
@@ -134,7 +134,7 @@ async function post(url, data) {
     const r = await fetch(url, {method: 'POST', body: new URLSearchParams(data || {})});
     return await r.json();
   } catch (e) {
-    return {ok: false, error: 'нет связи с платой'};
+    return {ok: false, error: 'cannot reach the board'};
   }
 }
 
@@ -148,59 +148,59 @@ async function refresh() {
     const [s, h] = await Promise.all([fetch('/api/status').then(r => r.json()), fetch('/api/history').then(r => r.json())]);
     const m = s.modem;
     kv($('#modem'), [
-      ['Модем', m.ready ? dot('ok') + 'работает' : dot('bad') + 'не запущен'],
-      ['SIM', dot(yes(m.sim)) + (m.sim ? 'готова' : 'нет')],
-      ['Сеть', dot(yes(m.registered)) + (m.registered ? 'зарегистрирован' : 'нет регистрации')],
-      ['Оператор', esc(m.operator || '—')],
-      ['Сигнал', signal(m.csq)],
-      ['SMS на симке', m.simTotal ? `${m.simUsed} из ${m.simTotal}` : '—'],
-      ['Время сети', esc(m.clock || '—')],
+      ['Modem', m.ready ? dot('ok') + 'running' : dot('bad') + 'not started'],
+      ['SIM', dot(yes(m.sim)) + (m.sim ? 'ready' : 'missing')],
+      ['Network', dot(yes(m.registered)) + (m.registered ? 'registered' : 'not registered')],
+      ['Operator', esc(m.operator || '—')],
+      ['Signal', signal(m.csq)],
+      ['SMS on SIM', m.simTotal ? `${m.simUsed} of ${m.simTotal}` : '—'],
+      ['Network time', esc(m.clock || '—')],
     ]);
     kv($('#sys'), [
       ['WiFi', dot(yes(s.wifi.connected)) + esc(s.wifi.ssid)],
-      ['Уровень WiFi', s.wifi.rssi + ' dBm'],
-      ['Адрес', `${esc(s.wifi.host)}<br><span class="muted">${esc(s.wifi.ip)}</span>`],
-      ['Работает', dur(s.uptime)],
-      ['Причина запуска', esc(s.resetReason)],
-      ['Переслано / неудачных попыток', `${s.stats.forwarded} / ${s.stats.failed}`],
-      ['Свободная память', Math.round(s.heap / 1024) + ' КБ'],
-      ['Последняя ошибка', s.lastError ? `<span class="bad">${esc(s.lastError)}</span><br><span class="muted">${dur(s.lastErrorAgo)} назад</span>` : '—'],
+      ['WiFi signal', s.wifi.rssi + ' dBm'],
+      ['Address', `${esc(s.wifi.host)}<br><span class="muted">${esc(s.wifi.ip)}</span>`],
+      ['Uptime', dur(s.uptime)],
+      ['Last reset reason', esc(s.resetReason)],
+      ['Forwarded / failed attempts', `${s.stats.forwarded} / ${s.stats.failed}`],
+      ['Free memory', Math.round(s.heap / 1024) + ' KB'],
+      ['Last error', s.lastError ? `<span class="bad">${esc(s.lastError)}</span><br><span class="muted">${dur(s.lastErrorAgo)} ago</span>` : '—'],
     ]);
-    kv($('#tg'), [['Бот', esc(s.tg.token)], ['Канал по умолчанию', esc(s.tg.chat)]]);
+    kv($('#tg'), [['Bot', esc(s.tg.token)], ['Default chat', esc(s.tg.chat)]]);
     const rulesKey = JSON.stringify(s.rules);
     if (rulesKey !== lastRules) {  // don't re-render while nothing changed, so buttons don't flicker
       lastRules = rulesKey;
       const n = s.rules.length;
       $('#rules').innerHTML = (n
-        ? `<table><tr><th>#</th><th>Условие</th><th>Значение</th><th>Чат</th><th></th></tr>${s.rules.map((r, i) =>
+        ? `<table><tr><th>#</th><th>Condition</th><th>Value</th><th>Chat</th><th></th></tr>${s.rules.map((r, i) =>
             `<tr><td class="muted">${i + 1}</td><td>${RULE[r.type]}</td><td><code>${esc(r.pattern)}</code></td><td>${esc(r.chat)}</td>
-             <td class="actions"><button class="secondary" data-move="up" data-i="${i}" ${i ? '' : 'disabled'} title="Выше">↑</button><button class="secondary" data-move="down" data-i="${i}" ${i < n - 1 ? '' : 'disabled'} title="Ниже">↓</button><button class="secondary" data-del="${i}" title="Удалить">✕</button></td></tr>`).join('')}</table>`
-        : '<p class="muted" style="margin:0">Правил пока нет — всё уходит в канал по умолчанию.</p>') +
-        `<p class="muted">Проверяются сверху вниз, срабатывает первое подходящее. Остальное — в канал по умолчанию (${esc(s.tg.chat)}).
-         Пример: правило «Начинается с» <code>[work]:</code> отправит SMS «[work]: привет» в свой чат как «привет».</p>`;
+             <td class="actions"><button class="secondary" data-move="up" data-i="${i}" ${i ? '' : 'disabled'} title="Move up">↑</button><button class="secondary" data-move="down" data-i="${i}" ${i < n - 1 ? '' : 'disabled'} title="Move down">↓</button><button class="secondary" data-del="${i}" title="Delete">✕</button></td></tr>`).join('')}</table>`
+        : '<p class="muted" style="margin:0">No rules yet — everything goes to the default chat.</p>') +
+        `<p class="muted">Checked top to bottom, the first match wins. Everything else goes to the default chat (${esc(s.tg.chat)}).
+         Example: a “Starts with” rule <code>[work]:</code> sends the SMS “[work]: hello” to its chat as “hello”.</p>`;
     }
     $('#history').innerHTML = h.length ? h.map(x => {
       const [label, cls] = STATUS[x.status] || [x.status, ''];
-      const where = x.out ? 'исходящее' : (x.chat ? '→ ' + esc(x.chat) : '');
+      const where = x.out ? 'outgoing' : (x.chat ? '→ ' + esc(x.chat) : '');
       return `<div class="msg"><div class="meta"><b>${x.out ? '↑ ' : '↓ '}${esc(x.peer)}</b>
         <span>${esc(x.time)}</span><span>${where}</span><span class="badge ${cls}">${label}</span></div>
         <div class="text">${esc(x.text)}</div></div>`;
-    }).join('') : '<p class="muted">Пока пусто. Здесь будут последние 50 SMS с момента включения платы.</p>';
-    $('#updated').textContent = 'обновлено ' + new Date().toLocaleTimeString();
+    }).join('') : '<p class="muted">Nothing yet. The last 50 SMS since the board started will show up here.</p>';
+    $('#updated').textContent = 'updated ' + new Date().toLocaleTimeString();
   } catch (e) {
-    $('#updated').textContent = 'нет связи с платой';
+    $('#updated').textContent = 'cannot reach the board';
   }
 }
 
 const ruleForm = $('#ruleForm');
-const PLACEHOLDER = {STARTS_WITH: '[work]:', CONTAINS: 'код', FROM: 'имя или номер отправителя'};
+const PLACEHOLDER = {STARTS_WITH: '[work]:', CONTAINS: 'code', FROM: 'sender name or number'};
 ruleForm.type.addEventListener('change', () => ruleForm.pattern.placeholder = PLACEHOLDER[ruleForm.type.value]);
 ruleForm.addEventListener('submit', e => {
   e.preventDefault();
   busy(ruleForm.querySelector('button'), null, async () => {
-    $('#ruleOut').textContent = 'Проверяю чат — отправляю туда тестовое сообщение…';
+    $('#ruleOut').textContent = 'Checking the chat — sending a test message there…';
     const j = await post('/api/rules/add', {type: ruleForm.type.value, pattern: ruleForm.pattern.value, chat: ruleForm.chat.value});
-    $('#ruleOut').innerHTML = j.ok ? '<span class="ok">Правило добавлено</span>' : `<span class="bad">Не добавлено: ${esc(j.error)}</span>`;
+    $('#ruleOut').innerHTML = j.ok ? '<span class="ok">Rule added</span>' : `<span class="bad">Not added: ${esc(j.error)}</span>`;
     if (j.ok) { ruleForm.pattern.value = ''; ruleForm.chat.value = ''; refresh(); }
   });
 });
@@ -209,7 +209,7 @@ $('#rules').addEventListener('click', async e => {
   if (!b) return;
   let j;
   if (b.dataset.del !== undefined) {
-    if (!confirm('Удалить правило?')) return;
+    if (!confirm('Delete this rule?')) return;
     j = await post('/api/rules/delete', {index: b.dataset.del});
   } else if (b.dataset.move) {
     j = await post('/api/rules/move', {index: b.dataset.i, dir: b.dataset.move});
@@ -221,15 +221,15 @@ $('#rules').addEventListener('click', async e => {
 const smsForm = $('#smsForm');
 smsForm.text.addEventListener('input', () => {
   const n = smsForm.text.value.length;
-  $('#smsCount').textContent = n ? `${n} симв., ${n <= 70 ? 1 : Math.ceil(n / 67)} SMS` : '';
+  $('#smsCount').textContent = n ? `${n} chars, ${n <= 70 ? 1 : Math.ceil(n / 67)} SMS` : '';
 });
 smsForm.addEventListener('submit', e => {
   e.preventDefault();
   const btn = smsForm.querySelector('button');
   busy(btn, null, async () => {
-    $('#smsOut').textContent = 'Отправляю…';
+    $('#smsOut').textContent = 'Sending…';
     const j = await post('/api/sms', {to: smsForm.to.value, text: smsForm.text.value});
-    $('#smsOut').innerHTML = j.ok ? `<span class="ok">Отправлено (${j.parts} SMS)</span>` : `<span class="bad">Ошибка: ${esc(j.error)}</span>`;
+    $('#smsOut').innerHTML = j.ok ? `<span class="ok">Sent (${j.parts} SMS)</span>` : `<span class="bad">Error: ${esc(j.error)}</span>`;
     if (j.ok) { smsForm.text.value = ''; $('#smsCount').textContent = ''; refresh(); }
   });
 });
@@ -238,45 +238,45 @@ const ussdForm = $('#ussdForm');
 ussdForm.addEventListener('submit', e => {
   e.preventDefault();
   busy(ussdForm.querySelector('button'), null, async () => {
-    $('#ussdOut').textContent = 'Жду ответ оператора…';
+    $('#ussdOut').textContent = 'Waiting for the operator…';
     const j = await post('/api/ussd', {code: ussdForm.code.value});
     $('#ussdOut').innerHTML = j.ok
-      ? esc(j.text) + (j.session ? '\n\n<span class="muted">Оператор ждёт ответа — введи его в поле и нажми «Отправить».</span>' : '')
-      : `<span class="bad">Ошибка: ${esc(j.error)}</span>`;
+      ? esc(j.text) + (j.session ? '\n\n<span class="muted">The operator expects a reply — type it in the field and press “Send”.</span>' : '')
+      : `<span class="bad">Error: ${esc(j.error)}</span>`;
     if (j.ok && j.session) { ussdForm.code.value = ''; ussdForm.code.focus(); }
   });
 });
 $('#ussdCancel').addEventListener('click', async () => {
   const j = await post('/api/ussd-cancel');
-  $('#ussdOut').textContent = j.ok ? 'Меню закрыто' : 'Открытого меню нет';
+  $('#ussdOut').textContent = j.ok ? 'Menu closed' : 'No open menu';
 });
 
 const cfgForm = $('#cfgForm');
 cfgForm.addEventListener('submit', e => {
   e.preventDefault();
   busy(cfgForm.querySelector('button'), null, async () => {
-    $('#cfgOut').textContent = 'Проверяю…';
+    $('#cfgOut').textContent = 'Checking…';
     const j = await post('/api/config', {token: cfgForm.token.value, chat: cfgForm.chat.value});
-    $('#cfgOut').innerHTML = j.ok ? '<span class="ok">Сохранено, тестовое сообщение отправлено</span>' : `<span class="bad">Не сохранено: ${esc(j.error)}</span>`;
+    $('#cfgOut').innerHTML = j.ok ? '<span class="ok">Saved, test message sent</span>' : `<span class="bad">Not saved: ${esc(j.error)}</span>`;
     if (j.ok) { cfgForm.reset(); refresh(); }
   });
 });
 $('#testBtn').addEventListener('click', e => busy(e.target, null, async () => {
-  $('#cfgOut').textContent = 'Отправляю…';
+  $('#cfgOut').textContent = 'Sending…';
   const j = await post('/api/test');
-  $('#cfgOut').innerHTML = j.ok ? '<span class="ok">Отправлено, проверь канал</span>' : `<span class="bad">Ошибка: ${esc(j.error)}</span>`;
+  $('#cfgOut').innerHTML = j.ok ? '<span class="ok">Sent, check the chat</span>' : `<span class="bad">Error: ${esc(j.error)}</span>`;
 }));
 
 $('#rebootBtn').addEventListener('click', async () => {
-  if (!confirm('Перезагрузить плату?')) return;
+  if (!confirm('Reboot the board?')) return;
   await post('/api/reboot');
-  $('#sysOut').textContent = 'Перезагружаюсь, страница обновится сама примерно через минуту…';
+  $('#sysOut').textContent = 'Rebooting, the page will reload in about a minute…';
   setTimeout(() => location.reload(), 60000);
 });
 $('#resetBtn').addEventListener('click', async () => {
-  if (!confirm('Стереть WiFi, токен бота и канал? Плата поднимет точку доступа для новой настройки, эта страница перестанет открываться.')) return;
+  if (!confirm('Erase WiFi, bot token, default chat and rules? The board will open its setup hotspot and this page will stop working.')) return;
   await post('/api/factory-reset');
-  $('#sysOut').textContent = 'Настройки стёрты. Подключись к точке доступа платы, чтобы настроить заново.';
+  $('#sysOut').textContent = 'Settings erased. Connect to the board’s hotspot to set it up again.';
 });
 
 refresh();

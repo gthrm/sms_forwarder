@@ -1,34 +1,34 @@
 #pragma once
 
 // ============================================================
-//  НАСТРОЙКИ
+//  SETTINGS
 // ============================================================
 
-// --- WiFi, токен бота, канал по умолчанию ---
-// Всё это вводится с телефона. Пока чего-то не хватает (или WiFi не подключился),
-// плата поднимает точку доступа с этим именем и паролем. Подключись к ней —
-// откроется страница: список сетей вокруг, пароль, токен бота и ID канала.
-// Если Telegram не примет токен или канал — точка доступа поднимется снова.
-// Сброс до заводских: два нажатия RST подряд (второе в течение 3 сек).
+// --- WiFi, bot token, default chat ---
+// All of these are entered from your phone. While something is missing (or WiFi doesn't connect),
+// the board opens a hotspot with this name and password. Connect to it and a page opens
+// with the list of nearby networks and fields for the WiFi password, bot token and chat ID.
+// If Telegram rejects the token or the chat, the hotspot opens again.
+// Factory reset: press RST twice (the second press within 3 s).
 #define AP_NAME "SMS-Forwarder"
-#define AP_PASS "12345678"  // минимум 8 символов
+#define AP_PASS "12345678"  // at least 8 characters
 
-// --- Веб-панель в локальной сети ---
-// Открывается по адресу http://sms-forwarder.local (или по IP платы из стартового сообщения).
-// Браузер спросит логин и пароль — поменяй пароль на свой.
+// --- Web panel on the local network ---
+// Open http://sms-forwarder.local (or the board's IP from the startup message).
+// The browser asks for a login and password; change the password.
 #define HOSTNAME "sms-forwarder"
 #define WEB_USER "admin"
 #define WEB_PASS "12345678"
 
-// PIN-код симки. Если PIN отключён — оставь пустым "".
+// SIM PIN. Leave empty "" if the PIN is disabled.
 #define SIM_PIN ""
 
-// Показывать сверху отправителя и время SMS
+// Prefix each forwarded message with the sender and time
 #define SHOW_HEADER true
 
-// Для правил «Начинается с»: убирать метку из текста.
-// "[work]: привет" -> в чат уйдёт "привет"
+// For "starts with" rules: remove the tag from the forwarded text.
+// "[work]: hello" -> the chat gets "hello"
 #define STRIP_PREFIX true
 
-// Правила (метка/слово/отправитель -> чат) настраиваются на веб-панели
-// и хранятся в памяти платы. Сброс до заводских стирает и их.
+// Forwarding rules (tag / word / sender -> chat) are managed in the web panel
+// and stored in the board's flash. A factory reset erases them too.

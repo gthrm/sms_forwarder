@@ -50,7 +50,7 @@ Firmware for the **LilyGO T-A7670 (E/G/SA) ESP32** board. It forwards every SMS 
 1. Power the board. Because there are no settings yet, it opens a WiFi hotspot called **SMS-Forwarder** (password `12345678`).
 2. Connect to it from your phone. A setup page opens automatically; if it doesn't, go to `http://192.168.4.1`.
 3. Tap **Configure WiFi**. Pick your network from the list of networks nearby, enter its password, the **bot token** and the **default channel ID**, then save.
-4. The board connects and posts **"✅ Пересылка SMS запущена"** ("SMS forwarding started") with the signal level, operator and the web panel address to the default channel.
+4. The board connects and posts **"✅ SMS forwarding started"** with the signal level, operator and the web panel address to the default channel.
 
 If something is wrong, the board opens the hotspot again so you can fix it:
 
@@ -85,9 +85,9 @@ Rules are added in the web panel and stored in the board's flash. They are check
 
 | Condition       | Matches when…                                                                  |
 | --------------- | ------------------------------------------------------------------------------ |
-| Начинается с (starts with) | the text starts with this tag or word. With `[work]:`, the SMS `[work]: привет как дела!` goes to that rule's chat as `привет как дела!` (the tag is removed; set `STRIP_PREFIX false` in `config.h` to keep it). A word like `WORK` matches "work: call Bob" but not "WORKSHOP". |
-| Содержит (contains) | the text contains this word or phrase anywhere                             |
-| Отправитель (sender) | the sender is this name (`Sberbank`) or phone number. Numbers are compared by their last 9 digits, so `+7999…` matches `8999…`. |
+| Starts with | the text starts with this tag or word. With `[work]:`, the SMS `[work]: hi, how are you?` goes to that rule's chat as `hi, how are you?` (the tag is removed; set `STRIP_PREFIX false` in `config.h` to keep it). A word like `WORK` matches "work: call Bob" but not "WORKSHOP". |
+| Contains | the text contains this word or phrase anywhere                             |
+| Sender | the sender is this name (`Sberbank`) or phone number. Numbers are compared by their last 9 digits, so `+7999…` matches `8999…`. |
 
 Matching ignores case for Latin, Cyrillic and Latin-with-diacritics letters (č, š, ž…).
 
@@ -109,7 +109,7 @@ When you add a rule, the board posts a test message to its chat. If Telegram rej
 
 ## Factory reset
 
-Press **RST**, then press it again within 3 seconds, or use **Сброс до заводских** in the web panel. This erases the WiFi credentials, bot token, default channel and all rules, and the board opens the setup hotspot.
+Press **RST**, then press it again within 3 seconds, or use **Factory reset** in the web panel. This erases the WiFi credentials, bot token, default channel and all rules, and the board opens the setup hotspot.
 
 A single RST press is just a reboot. Reboots caused by a power dip, crash or watchdog never trigger a reset. The startup message in Telegram shows the reboot reason when it wasn't a normal power-on.
 
@@ -122,13 +122,13 @@ A single RST press is just a reboot. Reboots caused by a power dip, crash or wat
 
 ## Troubleshooting
 
-Open **Serial Monitor** at **115200** baud. Log lines are prefixed with `[modem]`, `[wifi]`, `[cfg]`, `[sms]`, `[ussd]`, `[web]` and `[err]`, and the messages are in Russian. The first lines after boot show the reboot reason.
+Open **Serial Monitor** at **115200** baud. Log lines are prefixed with `[modem]`, `[wifi]`, `[cfg]`, `[sms]`, `[ussd]`, `[web]` and `[err]`. The first lines after boot show the reboot reason.
 
 | Symptom                                   | Check                                                                 |
 | ----------------------------------------- | --------------------------------------------------------------------- |
-| `SIM не готова` ("SIM not ready")         | SIM inserted correctly, PIN disabled or `SIM_PIN` set                 |
-| `модем не отвечает` ("modem not responding") | Battery inserted / better USB power                                |
-| `сеть не найдена`, `НЕ зарегистрирован в сети` ("not registered on the network") | Antenna on the **SIM** connector; the SIM works in a phone; the modem variant supports your operator's bands |
+| `SIM not ready`                           | SIM inserted correctly, PIN disabled or `SIM_PIN` set                 |
+| `Modem not responding`                    | Battery inserted / better USB power                                |
+| `no network yet`, `NOT registered on the network` | Antenna on the **SIM** connector; the SIM works in a phone; the modem variant supports your operator's bands |
 | No port in Arduino IDE                    | Data-capable cable, CH9102 driver allowed                             |
 | Upload fails                              | Remove the SD card, lower Upload Speed to 115200, or hold **IO0** while plugging in |
 | Web panel doesn't open                    | Same WiFi network as the board; try the IP from the startup message instead of `sms-forwarder.local` |
